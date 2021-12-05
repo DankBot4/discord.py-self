@@ -205,7 +205,7 @@ class StickerItem(_StickerTag):
     def __str__(self) -> str:
         return self.name
 
-    async def fetch(self) -> Union[Sticker, StandardSticker, GuildSticker]:
+    async def fetch(self):
         """|coro|
         Attempts to retrieve the full sticker data of the sticker item.
         Raises
