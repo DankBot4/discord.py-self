@@ -28,6 +28,7 @@ from .mixins import Hashable
 from .asset import Asset, AssetMixin
 from .utils import snowflake_time
 from .enums import StickerType, try_enum, StickerFormatType
+from .state import ConnectionState
 
 class Sticker(Hashable):
     """Represents a sticker.
