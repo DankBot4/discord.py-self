@@ -28,7 +28,6 @@ from .mixins import Hashable
 from .asset import Asset, AssetMixin
 from .utils import snowflake_time
 from .enums import StickerType, try_enum, StickerFormatType
-from .state import ConnectionState
 
 class Sticker(Hashable):
     """Represents a sticker.
@@ -192,7 +191,7 @@ class StickerItem(_StickerTag):
 
     __slots__ = ('_state', 'name', 'id', 'format', 'url')
 
-    def __init__(self, *, state: ConnectionState, data: StickerItemPayload):
+    def __init__(self, *, state , data: StickerItemPayload):
         self._state: ConnectionState = state
         self.name: str = data['name']
         self.id: int = int(data['id'])
