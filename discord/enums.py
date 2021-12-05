@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 """
 The MIT License (MIT)
 
@@ -24,7 +26,6 @@ DEALINGS IN THE SOFTWARE.
 
 import types
 from collections import namedtuple
-from typing import Any, ClassVar, Dict, List, Optional, TYPE_CHECKING, Type, TypeVar
 
 __all__ = (
     'Enum',
@@ -84,13 +85,7 @@ def _is_descriptor(obj):
 
 
 class EnumMeta(type):
-    if TYPE_CHECKING:
-        __name__: ClassVar[str]
-        _enum_member_names_: ClassVar[List[str]]
-        _enum_member_map_: ClassVar[Dict[str, Any]]
-        _enum_value_map_: ClassVar[Dict[Any, Any]]
-
-    def __new__(cls, name, bases, attrs, *, comparable: bool = False):
+    def __new__(cls, name, bases, attrs):
         value_mapping = {}
         member_mapping = {}
         member_names = []
@@ -125,7 +120,7 @@ class EnumMeta(type):
         attrs['_enum_member_names_'] = member_names
         attrs['_enum_value_cls_'] = value_cls
         actual_cls = super().__new__(cls, name, bases, attrs)
-        value_cls._actual_enum_cls_ = actual_cls  # type: ignore
+        value_cls._actual_enum_cls_ = actual_cls
         return actual_cls
 
     def __iter__(cls):
@@ -168,17 +163,13 @@ class EnumMeta(type):
             return False
 
 
-if TYPE_CHECKING:
-    from enum import Enum
-else:
-
-    class Enum(metaclass=EnumMeta):
-        @classmethod
-        def try_value(cls, value):
-            try:
-                return cls._enum_value_map_[value]
-            except (KeyError, TypeError):
-                return value
+class Enum(metaclass=EnumMeta):
+    @classmethod
+    def try_value(cls, value):
+        try:
+            return cls._enum_value_map_[value]
+        except (KeyError, TypeError):
+            return value
 
 
 class ChannelType(Enum):
@@ -272,7 +263,10 @@ class VerificationLevel(Enum, comparable=True):
     low = 1
     medium = 2
     high = 3
-    highest = 4
+    table_flip = 3
+    extreme = 4
+    double_table_flip = 4
+    very_high = 4
 
     def __str__(self):
         return self.name
@@ -286,22 +280,25 @@ class ContentFilter(Enum, comparable=True):
     def __str__(self):
         return self.name
 
+
 class UserContentFilter(Enum):
-    always         = 0
+    always = 0
     on_interaction = 1
-    never          = 2
+    never = 2
+
 
 class StickerAnimationOptions(Enum):
-    disabled     = 2
-    friends      = 1
+    disabled = 2
+    friends = 1
     all_messages = 0
 
+
 class FriendFlags(Enum):
-    noone             = 0
-    mutual_guilds     = 1
-    mutual_friends    = 2
+    noone = 0
+    mutual_guilds = 1
+    mutual_friends = 2
     guild_and_friends = 3
-    everyone          = 4
+    everyone = 4
 
     def to_dict(self):
         if self.value == 0:
@@ -332,9 +329,11 @@ class FriendFlags(Enum):
         else:
             return cls.noone
 
+
 class Theme(Enum):
     light = 'light'
     dark = 'dark'
+
 
 class Status(Enum):
     online = 'online'
@@ -359,6 +358,7 @@ class DefaultAvatar(Enum):
     def __str__(self):
         return self.name
 
+
 class RelationshipType(Enum):
     friend           = 1
     blocked          = 2
@@ -377,7 +377,6 @@ class AuditLogActionCategory(Enum):
 
 
 class AuditLogAction(Enum):
-    # fmt: off
     guild_update = 1
     channel_create = 10
     channel_update = 11
@@ -426,9 +425,8 @@ class AuditLogAction(Enum):
     # fmt: on
 
     @property
-    def category(self) -> Optional[AuditLogActionCategory]:
-        # fmt: off
-        lookup: Dict[AuditLogAction, Optional[AuditLogActionCategory]] = {
+    def category(self):
+        lookup = {
             AuditLogAction.guild_update: AuditLogActionCategory.update,
             AuditLogAction.channel_create: AuditLogActionCategory.create,
             AuditLogAction.channel_update: AuditLogActionCategory.update,
@@ -464,17 +462,7 @@ class AuditLogAction(Enum):
             AuditLogAction.integration_create: AuditLogActionCategory.create,
             AuditLogAction.integration_update: AuditLogActionCategory.update,
             AuditLogAction.integration_delete: AuditLogActionCategory.delete,
-            AuditLogAction.stage_instance_create: AuditLogActionCategory.create,
-            AuditLogAction.stage_instance_update: AuditLogActionCategory.update,
-            AuditLogAction.stage_instance_delete: AuditLogActionCategory.delete,
-            AuditLogAction.sticker_create: AuditLogActionCategory.create,
-            AuditLogAction.sticker_update: AuditLogActionCategory.update,
-            AuditLogAction.sticker_delete: AuditLogActionCategory.delete,
-            AuditLogAction.thread_create: AuditLogActionCategory.create,
-            AuditLogAction.thread_update: AuditLogActionCategory.update,
-            AuditLogAction.thread_delete: AuditLogActionCategory.delete,
         }
-        # fmt: on
         return lookup[self]
 
     @property
@@ -511,23 +499,24 @@ class AuditLogAction(Enum):
 
 
 class UserFlags(Enum):
-    staff                      = 1
-    partner                    = 2
-    hypesquad                  = 4
-    bug_hunter                 = 8
-    mfa_sms                    = 16
-    premium_promo_dismissed    = 32
-    hypesquad_bravery          = 64
-    hypesquad_brilliance       = 128
-    hypesquad_balance          = 256
-    early_supporter            = 512
-    team_user                  = 1024
-    system                     = 4096
+    staff = 1
+    partner = 2
+    hypesquad = 4
+    bug_hunter = 8
+    mfa_sms = 16
+    premium_promo_dismissed = 32
+    hypesquad_bravery = 64
+    hypesquad_brilliance = 128
+    hypesquad_balance = 256
+    early_supporter = 512
+    team_user = 1024
+    system = 4096
     has_unread_urgent_messages = 8192
-    bug_hunter_level_2         = 16384
-    verified_bot               = 65536
-    verified_bot_developer     = 131072
-    spammer                    = 1048576
+    bug_hunter_level_2 = 16384
+    verified_bot = 65536
+    verified_bot_developer = 131072
+    spammer = 1048576
+
 
 class ActivityType(Enum):
     unknown = -1
@@ -542,13 +531,14 @@ class ActivityType(Enum):
         return self.value
 
 class HypeSquadHouse(Enum):
-    bravery    = 1
+    bravery = 1
     brilliance = 2
-    balance    = 3
+    balance = 3
+
 
 class PremiumType(Enum):
     nitro_classic = 1
-    nitro         = 2
+    nitro = 2
 
 class TeamMembershipState(Enum):
     invited = 1
@@ -663,26 +653,36 @@ class NSFWLevel(Enum, comparable=True):
 
 class ReportType(Enum):
     illegal_content = 1
-    harassment      = 2
-    phishing        = 3
-    self_harm       = 4
-    nsfw_content    = 5
+    harassment = 2
+    phishing = 3
+    self_harm = 4
+    nsfw_content = 5
 
     def __int__(self):
         return self.value
 
 
+class RelationshipAction(Enum):
+    send_friend_request = 'request'
+    unfriend = 'unfriend'
+    accept_request = 'accept'
+    deny_request = 'deny'
+    block = 'block'
+    unblock = 'unblock'
+    remove_pending_request = 'remove'
+
+
 class UnavailableGuildType(Enum):
     existing = 'ready'
-    joined   = 'joined'
+    joined = 'joined'
 
 T = TypeVar('T')
 
-
-def create_unknown_value(cls: Type[T], val: Any) -> T:
-    value_cls = cls._enum_value_cls_  # type: ignore
-    name = f'unknown_{val}'
-    return value_cls(name=name, value=val)
+class RequiredActionType(Enum):
+    verify_phone = 'REQUIRE_VERIFIED_PHONE'
+    verify_email = 'REQUIRE_VERIFIED_EMAIL'
+    captcha = 'REQUIRE_CAPTCHA'
+    accept_terms = 'AGREEMENTS'
 
 
 class BrowserEnum(Enum):
@@ -693,13 +693,14 @@ class BrowserEnum(Enum):
     edge = 'microsoft-edge'
     opera = 'opera'
 
-def try_enum(cls: Type[T], val: Any) -> T:
+
+def try_enum(cls, val):
     """A function that tries to turn the value into enum ``cls``.
 
-    If it fails it returns a proxy invalid value instead.
+    If it fails it returns the value instead.
     """
 
     try:
-        return cls._enum_value_map_[val]  # type: ignore
+        return cls._enum_value_map_[val]
     except (KeyError, TypeError, AttributeError):
-        return create_unknown_value(cls, oal)
+        return val
