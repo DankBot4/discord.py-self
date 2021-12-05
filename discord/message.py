@@ -31,7 +31,8 @@ import datetime
 import re
 import io
 from os import PathLike
-from typing import Dict, TYPE_CHECKING, Union, List, Optional, Any, Callable, Tuple, ClassVar, Optional, overload, TypeVar, Type
+from typing import Dict, TYPE_CHECKING, Union, List, Optional, Any, Callable, Tuple, ClassVar, Optional, overload, \
+    TypeVar, Type
 
 from . import utils
 from .calls import CallMessage
@@ -157,11 +158,11 @@ class Attachment(Hashable):
         return self.url or ''
 
     async def save(
-        self,
-        fp: Union[io.BufferedIOBase, PathLike],
-        *,
-        seek_begin: bool = True,
-        use_cached: bool = False,
+            self,
+            fp: Union[io.BufferedIOBase, PathLike],
+            *,
+            seek_begin: bool = True,
+            use_cached: bool = False,
     ) -> int:
         """|coro|
 
@@ -323,7 +324,7 @@ class DeletedReferencedMessage:
     def id(self) -> int:
         """:class:`int`: The message ID of the deleted referenced message."""
         # the parent's message id won't be None here
-        return self._parent.message_id # type: ignore
+        return self._parent.message_id  # type: ignore
 
     @property
     def channel_id(self) -> int:
@@ -372,7 +373,8 @@ class MessageReference:
 
     __slots__ = ('message_id', 'channel_id', 'guild_id', 'fail_if_not_exists', 'resolved', '_state')
 
-    def __init__(self, *, message_id: int, channel_id: int, guild_id: Optional[int] = None, fail_if_not_exists: bool = True):
+    def __init__(self, *, message_id: int, channel_id: int, guild_id: Optional[int] = None,
+                 fail_if_not_exists: bool = True):
         self._state: Optional[ConnectionState] = None
         self.resolved: Optional[Union[Message, DeletedReferencedMessage]] = None
         self.message_id: Optional[int] = message_id
@@ -608,11 +610,11 @@ class Message(Hashable):
     )
 
     def __init__(
-        self,
-        *,
-        state: ConnectionState,
-        channel: MessageableChannel,
-        data: MessagePayload,
+            self,
+            *,
+            state: ConnectionState,
+            channel: MessageableChannel,
+            data: MessagePayload,
     ):
         self._state: ConnectionState = state
         self.id: int = int(data['id'])
@@ -838,6 +840,7 @@ class Message(Hashable):
         self.components = [_component_factory(d) for d in components]
 
         # we get the participant source from the mentions array or
+
     def _handle_call(self, call):
         if call is None or self.type is not MessageType.call:
             self.call = None
@@ -1091,7 +1094,6 @@ class Message(Hashable):
 
             # the resolved message for the reference will be a Message
             return self.reference.resolved.content  # type: ignore
-
 
     async def invites(self):
         """|coro|
@@ -1582,7 +1584,20 @@ class PartialMessage(Hashable):
     id: :class:`int`
         The message ID.
     """
-
+    _exported_names = (
+        'jump_url',
+        'delete',
+        'publish',
+        'pin',
+        'unpin',
+        'add_reaction',
+        'remove_reaction',
+        'clear_reaction',
+        'clear_reactions',
+        'reply',
+        'to_reference',
+        'to_message_reference_dict',
+    )
     __slots__ = ('channel', 'id', '_cs_guild', '_state')
 
     jump_url: str = Message.jump_url  # type: ignore
