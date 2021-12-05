@@ -608,15 +608,6 @@ class Message(Hashable):
         'guild',
     )
 
-    if TYPE_CHECKING:
-        _HANDLERS: ClassVar[List[Tuple[str, Callable[..., None]]]]
-        _CACHED_SLOTS: ClassVar[List[str]]
-        guild: Optional[Guild]
-        reference: Optional[MessageReference]
-        mentions: List[Union[User, Member]]
-        author: Union[User, Member]
-        role_mentions: List[Role]
-
     def __init__(
         self,
         *,
