@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 """
 The MIT License (MIT)
 
@@ -32,8 +34,13 @@ from os import PathLike
 from typing import Dict, TYPE_CHECKING, Union, List, Optional, Any, Callable, Tuple, ClassVar, Optional, overload, TypeVar, Type
 
 from . import utils
+from .calls import CallMessage
+from .embeds import Embed
 from .reaction import Reaction
 from .emoji import Emoji
+from .enums import ChannelType, MessageType, ReportType, try_enum
+from .errors import DiscordException, HTTPException, InvalidArgument
+from .file import File
 from .partial_emoji import PartialEmoji
 from .enums import MessageType, ChannelType, try_enum
 from .errors import InvalidArgument, HTTPException
@@ -44,40 +51,13 @@ from .flags import MessageFlags
 from .file import File
 from .utils import escape_mentions, MISSING
 from .guild import Guild
+from .invite import Invite
+from .member import Member
 from .mixins import Hashable
-from .sticker import StickerItem
-from .threads import Thread
-
-if TYPE_CHECKING:
-    from .types.message import (
-        Message as MessagePayload,
-        Attachment as AttachmentPayload,
-        MessageReference as MessageReferencePayload,
-        MessageApplication as MessageApplicationPayload,
-        MessageActivity as MessageActivityPayload,
-        Reaction as ReactionPayload,
-    )
-
-    from .types.components import Component as ComponentPayload
-    from .types.threads import ThreadArchiveDuration
-    from .types.member import (
-        Member as MemberPayload,
-        UserWithMember as UserWithMemberPayload,
-    )
-    from .types.user import User as UserPayload
-    from .types.embed import Embed as EmbedPayload
-    from .abc import Snowflake
-    from .abc import GuildChannel, PartialMessageableChannel, MessageableChannel
-    from .components import Component
-    from .state import ConnectionState
-    from .channel import TextChannel, GroupChannel, DMChannel, PartialMessageable
-    from .mentions import AllowedMentions
-    from .user import User
-    from .role import Role
-    from .ui.view import View
-
-    MR = TypeVar('MR', bound='MessageReference')
-    EmojiInputType = Union[Emoji, PartialEmoji, str]
+from .partial_emoji import PartialEmoji
+from .reaction import Reaction
+from .sticker import Sticker
+from .utils import escape_mentions
 
 __all__ = (
     'Attachment',
@@ -170,10 +150,10 @@ class Attachment(Hashable):
         """:class:`bool`: Whether this attachment contains a spoiler."""
         return self.filename.startswith('SPOILER_')
 
-    def __repr__(self) -> str:
-        return f'<Attachment id={self.id} filename={self.filename!r} url={self.url!r}>'
+    def __repr__(self):
+        return '<Attachment id={0.id} filename={0.filename!r} url={0.url!r}>'.format(self)
 
-    def __str__(self) -> str:
+    def __str__(self):
         return self.url or ''
 
     async def save(
@@ -432,12 +412,8 @@ class MessageReference:
         :class:`MessageReference`
             A reference to the message.
         """
-        self = cls(
-            message_id=message.id,
-            channel_id=message.channel.id,
-            guild_id=getattr(message.guild, 'id', None),
-            fail_if_not_exists=fail_if_not_exists,
-        )
+        self = cls(message_id=message.id, channel_id=message.channel.id, guild_id=getattr(message.guild, 'id', None),
+                   fail_if_not_exists=fail_if_not_exists)
         self._state = message._state
         return self
 
@@ -512,19 +488,22 @@ class Message(Hashable):
     type: :class:`MessageType`
         The type of message. In most cases this should not be checked, but it is helpful
         in cases where it might be a system message for :attr:`system_content`.
-    author: Union[:class:`Member`, :class:`abc.User`]
+    author: :class:`abc.User`
         A :class:`Member` that sent the message. If :attr:`channel` is a
         private channel or the user has the left the guild, then it is a :class:`User` instead.
     content: :class:`str`
         The actual contents of the message.
-    nonce: Optional[Union[:class:`str`, :class:`int`]]
+    nonce
         The value used by the discord guild and the client to verify that the message is successfully sent.
         This is not stored long term within Discord's servers and is only used ephemerally.
     embeds: List[:class:`Embed`]
         A list of embeds the message has.
-    channel: Union[:class:`TextChannel`, :class:`Thread`, :class:`DMChannel`, :class:`GroupChannel`, :class:`PartialMessageable`]
-        The :class:`TextChannel` or :class:`Thread` that the message was sent from.
+    channel: Union[:class:`abc.Messageable`]
+        The :class:`TextChannel` that the message was sent from.
         Could be a :class:`DMChannel` or :class:`GroupChannel` if it's a private message.
+    call: Optional[:class:`CallMessage`]
+        The call that the message refers to. This is only applicable to messages of type
+        :attr:`MessageType.call`.
     reference: Optional[:class:`~discord.MessageReference`]
         The message that this message references. This is only applicable to messages of
         type :attr:`MessageType.pins_add`, crossposted messages created by a
@@ -590,16 +569,10 @@ class Message(Hashable):
         - ``description``: A string representing the application's description.
         - ``icon``: A string representing the icon ID of the application.
         - ``cover_image``: A string representing the embed's image asset ID.
-    stickers: List[:class:`StickerItem`]
-        A list of sticker items given to the message.
+    stickers: List[:class:`Sticker`]
+        A list of stickers given to the message.
 
         .. versionadded:: 1.6
-    components: List[:class:`Component`]
-        A list of components in the message.
-
-        .. versionadded:: 2.0
-    guild: Optional[:class:`Guild`]
-        The guild that the message belongs to, if applicable.
     """
 
     __slots__ = (
@@ -700,7 +673,7 @@ class Message(Hashable):
                     # the channel will be the correct type here
                     ref.resolved = self.__class__(channel=chan, data=resolved, state=state)  # type: ignore
 
-        for handler in ('author', 'member', 'mentions', 'mention_roles'):
+        for handler in ('author', 'member', 'mentions', 'mention_roles', 'call', 'flags'):
             try:
                 getattr(self, f'_handle_{handler}')(data[handler])
             except KeyError:
@@ -841,7 +814,7 @@ class Message(Hashable):
         author = self.author
         try:
             # Update member reference
-            author._update_from_message(member)  # type: ignore
+            author._update_from_message(member)
         except AttributeError:
             # It's a user here
             # TODO: consider adding to cache here
@@ -874,9 +847,38 @@ class Message(Hashable):
     def _handle_components(self, components: List[ComponentPayload]):
         self.components = [_component_factory(d) for d in components]
 
-    def _rebind_cached_references(self, new_guild: Guild, new_channel: Union[TextChannel, Thread]) -> None:
-        self.guild = new_guild
+        # we get the participant source from the mentions array or
+    def _handle_call(self, call):
+        if call is None or self.type is not MessageType.call:
+            self.call = None
+            return
+
+        # the author
+
+        participants = []
+        for uid in map(int, call.get('participants', [])):
+            if uid == self.author.id:
+                participants.append(self.author)
+            else:
+                user = utils.find(lambda u: u.id == uid, self.mentions)
+                if user is not None:
+                    participants.append(user)
+
+        call['participants'] = participants
+        self.call = CallMessage(message=self, **call)
+
+    def _rebind_channel_reference(self, new_channel):
         self.channel = new_channel
+
+        try:
+            del self._cs_guild
+        except AttributeError:
+            pass
+
+    @utils.cached_slot_property('_cs_guild')
+    def guild(self):
+        """Optional[:class:`Guild`]: The guild that the message belongs to, if applicable."""
+        return getattr(self.channel, 'guild', None)
 
     @utils.cached_slot_property('_cs_raw_mentions')
     def raw_mentions(self) -> List[int]:
@@ -926,7 +928,6 @@ class Message(Hashable):
             respectively, along with this function.
         """
 
-        # fmt: off
         transformations = {
             re.escape(f'<#{channel.id}>'): '#' + channel.name
             for channel in self.channel_mentions
@@ -952,8 +953,6 @@ class Message(Hashable):
                 for role in self.role_mentions
             }
             transformations.update(role_transforms)
-
-        # fmt: on
 
         def repl(obj):
             return transformations.get(re.escape(obj.group(0)), '')
@@ -981,9 +980,6 @@ class Message(Hashable):
     def is_system(self) -> bool:
         """:class:`bool`: Whether the message is a system message.
 
-        A system message is a message that is constructed entirely by the Discord API
-        in response to something.
-
         .. versionadded:: 1.3
         """
         return self.type not in (
@@ -998,13 +994,16 @@ class Message(Hashable):
         r""":class:`str`: A property that returns the content that is rendered
         regardless of the :attr:`Message.type`.
 
-        In the case of :attr:`MessageType.default` and :attr:`MessageType.reply`\,
-        this just returns the regular :attr:`Message.content`. Otherwise this
-        returns an English message denoting the contents of the system message.
+        In the case of :attr:`MessageType.default`\, this just returns the
+        regular :attr:`Message.content`. Otherwise this returns an English
+        message denoting the contents of the system message.
         """
 
         if self.type is MessageType.default:
             return self.content
+
+        if self.type is MessageType.pins_add:
+            return f'{self.author.name} pinned a message to this channel.'
 
         if self.type is MessageType.recipient_add:
             if self.channel.type is ChannelType.group:
@@ -1103,8 +1102,30 @@ class Message(Hashable):
             # the resolved message for the reference will be a Message
             return self.reference.resolved.content  # type: ignore
 
-        if self.type is MessageType.guild_invite_reminder:
-            return 'Wondering who to invite?\nStart by inviting anyone who can help you build the server!'
+
+    async def invites(self):
+        """|coro|
+        Retreives all valid invites in a message.
+        The official client does this with every message in the channel you're in.
+        Raises
+        ------
+        HTTPException
+            Fetching the invites failed.
+        Returns
+        -------
+        List[:class:`Invite`]
+            All valid invites contained in the message.
+        """
+        state = self._state
+        invite_ids = [utils.resolve_invite(match) for match in
+                      re.findall('(?:https?://)?discord(?:app)?\.(?:com/invite|gg)/[a-zA-Z0-9]+/?', self.content)]
+        invites = []
+        for id in invite_ids:
+            try:
+                invites.append(await state.http.get_invite(id))
+            except DiscordException:
+                pass
+        return [Invite.from_incomplete(state=state, data=invite, message_id=self.id) for invite in invites]
 
     async def delete(self, *, delay: Optional[float] = None) -> None:
         """|coro|
@@ -1146,45 +1167,7 @@ class Message(Hashable):
         else:
             await self._state.http.delete_message(self.channel.id, self.id)
 
-    @overload
-    async def edit(
-        self,
-        *,
-        content: Optional[str] = ...,
-        embed: Optional[Embed] = ...,
-        attachments: List[Attachment] = ...,
-        suppress: bool = ...,
-        delete_after: Optional[float] = ...,
-        allowed_mentions: Optional[AllowedMentions] = ...,
-        view: Optional[View] = ...,
-    ) -> Message:
-        ...
-
-    @overload
-    async def edit(
-        self,
-        *,
-        content: Optional[str] = ...,
-        embeds: List[Embed] = ...,
-        attachments: List[Attachment] = ...,
-        suppress: bool = ...,
-        delete_after: Optional[float] = ...,
-        allowed_mentions: Optional[AllowedMentions] = ...,
-        view: Optional[View] = ...,
-    ) -> Message:
-        ...
-
-    async def edit(
-        self,
-        content: Optional[str] = MISSING,
-        embed: Optional[Embed] = MISSING,
-        embeds: List[Embed] = MISSING,
-        attachments: List[Attachment] = MISSING,
-        suppress: bool = MISSING,
-        delete_after: Optional[float] = None,
-        allowed_mentions: Optional[AllowedMentions] = MISSING,
-        view: Optional[View] = MISSING,
-    ) -> Message:
+    async def edit(self, **fields):
         """|coro|
 
         Edits the message.
@@ -1202,14 +1185,6 @@ class Message(Hashable):
         embed: Optional[:class:`Embed`]
             The new embed to replace the original with.
             Could be ``None`` to remove the embed.
-        embeds: List[:class:`Embed`]
-            The new embeds to replace the original with. Must be a maximum of 10.
-            To remove all embeds ``[]`` should be passed.
-
-            .. versionadded:: 2.0
-        attachments: List[:class:`Attachment`]
-            A list of attachments to keep in the message. If ``[]`` is passed
-            then all attachments are removed.
         suppress: :class:`bool`
             Whether to suppress embeds for the message. This removes
             all the embeds if set to ``True``. If set to ``False``
@@ -1228,9 +1203,6 @@ class Message(Hashable):
             are used instead.
 
             .. versionadded:: 1.4
-        view: Optional[:class:`~discord.ui.View`]
-            The updated view to update this message with. If ``None`` is passed then
-            the view is removed.
 
         Raises
         -------
@@ -1239,8 +1211,6 @@ class Message(Hashable):
         Forbidden
             Tried to suppress a message without permissions or
             edited a message's content or embed that isn't yours.
-        ~discord.InvalidArgument
-            You specified both ``embed`` and ``embeds``
         """
 
         payload: Dict[str, Any] = {}
@@ -1295,9 +1265,7 @@ class Message(Hashable):
         if delete_after is not None:
             await self.delete(delay=delete_after)
 
-        return message
-
-    async def publish(self) -> None:
+    async def publish(self):
         """|coro|
 
         Publishes this message to your announcement channel.
@@ -1317,7 +1285,33 @@ class Message(Hashable):
 
         await self._state.http.publish_message(self.channel.id, self.id)
 
-    async def pin(self, *, reason: Optional[str] = None) -> None:
+    async def report(self, reason):
+        """|coro|
+
+        Reports this message.
+
+        Parameters
+        -----------
+        reason: :class:`ReportType`
+            The reason to report the message for.
+
+        Raises
+        -------
+        HTTPException
+            Reporting the message failed.
+
+        Returns
+        --------
+        :class:`int`
+            The resulting report ID.
+        """
+
+        reason = try_enum(ReportType, reason)
+        guild_id = getattr(self.guild, 'id', None)
+        data = await self._state.http.mobile_report(guild_id, self.channel.id, self.id, int(reason))
+        return int(data['id'])
+
+    async def pin(self):
         """|coro|
 
         Pins the message.
@@ -1492,50 +1486,7 @@ class Message(Hashable):
         await self._state.http.clear_reactions(self.channel.id, self.id)
 
     async def create_thread(self, *, name: str, auto_archive_duration: ThreadArchiveDuration = MISSING) -> Thread:
-        """|coro|
-
-        Creates a public thread from this message.
-
-        You must have :attr:`~discord.Permissions.send_messages` and
-        :attr:`~discord.Permissions.use_threads` in order to create a thread.
-
-        The channel this message belongs in must be a :class:`TextChannel`.
-
-        .. versionadded:: 2.0
-
-        Parameters
-        -----------
-        name: :class:`str`
-            The name of the thread.
-        auto_archive_duration: :class:`int`
-            The duration in minutes before a thread is automatically archived for inactivity.
-            If not provided, the channel's default auto archive duration is used.
-
-        Raises
-        -------
-        Forbidden
-            You do not have permissions to create a thread.
-        HTTPException
-            Creating the thread failed.
-        InvalidArgument
-            This message does not have guild info attached.
-
-        Returns
-        --------
-        :class:`.Thread`
-            The created thread.
-        """
-        if self.guild is None:
-            raise InvalidArgument('This message does not have guild info attached.')
-
-        default_auto_archive_duration: ThreadArchiveDuration = getattr(self.channel, 'default_auto_archive_duration', 1440)
-        data = await self._state.http.start_thread_with_message(
-            self.channel.id,
-            self.id,
-            name=name,
-            auto_archive_duration=auto_archive_duration or default_auto_archive_duration,
-        )
-        return Thread(guild=self.guild, state=self._state, data=data)
+        return await self._state.http.ack_message(self.channel.id, self.id)
 
     async def reply(self, content: Optional[str] = None, **kwargs) -> Message:
         """|coro|
@@ -1596,6 +1547,15 @@ class Message(Hashable):
         return data
 
 
+def implement_partial_methods(cls):
+    msg = Message
+    for name in cls._exported_names:
+        func = getattr(msg, name)
+        setattr(cls, name, func)
+    return cls
+
+
+@implement_partial_methods
 class PartialMessage(Hashable):
     """Represents a partial message to aid with working messages when only
     a message and channel ID are present.
@@ -1650,12 +1610,12 @@ class PartialMessage(Hashable):
 
     def __init__(self, *, channel: PartialMessageableChannel, id: int):
         if channel.type not in (
-            ChannelType.text,
-            ChannelType.news,
-            ChannelType.private,
-            ChannelType.news_thread,
-            ChannelType.public_thread,
-            ChannelType.private_thread,
+                ChannelType.text,
+                ChannelType.news,
+                ChannelType.private,
+                ChannelType.news_thread,
+                ChannelType.public_thread,
+                ChannelType.private_thread,
         ):
             raise TypeError(f'Expected TextChannel, DMChannel or Thread not {type(channel)!r}')
 
@@ -1705,6 +1665,7 @@ class PartialMessage(Hashable):
             The full message.
         """
 
+        await self.channel._get_channel()
         data = await self._state.http.get_message(self.channel.id, self.id)
         return self._state.create_message(channel=self.channel, data=data)
 
@@ -1781,7 +1742,7 @@ class PartialMessage(Hashable):
                 fields['embed'] = embed.to_dict()
 
         try:
-            suppress: bool = fields.pop('suppress')
+            suppress = fields.pop('suppress')
         except KeyError:
             pass
         else:
