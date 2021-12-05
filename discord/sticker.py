@@ -137,3 +137,57 @@ class Sticker(Hashable):
             return None
 
         return Asset._from_sticker_url(self._state, self, size=size)
+
+
+class StickerItem(_StickerTag):
+    """Represents a sticker item.
+    .. versionadded:: 2.0
+    .. container:: operations
+        .. describe:: str(x)
+            Returns the name of the sticker item.
+        .. describe:: x == y
+           Checks if the sticker item is equal to another sticker item.
+        .. describe:: x != y
+           Checks if the sticker item is not equal to another sticker item.
+    Attributes
+    -----------
+    name: :class:`str`
+        The sticker's name.
+    id: :class:`int`
+        The id of the sticker.
+    format: :class:`StickerFormatType`
+        The format for the sticker's image.
+    url: :class:`str`
+        The URL for the sticker's image.
+    """
+
+    __slots__ = ('_state', 'name', 'id', 'format', 'url')
+
+    def __init__(self, *, state: ConnectionState, data: StickerItemPayload):
+        self._state: ConnectionState = state
+        self.name: str = data['name']
+        self.id: int = int(data['id'])
+        self.format: StickerFormatType = try_enum(StickerFormatType, data['format_type'])
+        self.url: str = f'{Asset.BASE}/stickers/{self.id}.{self.format.file_extension}'
+
+    def __repr__(self) -> str:
+        return f'<StickerItem id={self.id} name={self.name!r} format={self.format}>'
+
+    def __str__(self) -> str:
+        return self.name
+
+    async def fetch(self) -> Union[Sticker, StandardSticker, GuildSticker]:
+        """|coro|
+        Attempts to retrieve the full sticker data of the sticker item.
+        Raises
+        --------
+        HTTPException
+            Retrieving the sticker failed.
+        Returns
+        --------
+        Union[:class:`StandardSticker`, :class:`GuildSticker`]
+            The retrieved sticker.
+        """
+        data: StickerPayload = await self._state.http.get_sticker(self.id)
+        cls, _ = _sticker_factory(data['type'])  # type: ignore
+        return cls(state=self._state, data=data)
