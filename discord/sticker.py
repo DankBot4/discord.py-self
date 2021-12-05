@@ -27,7 +27,7 @@ DEALINGS IN THE SOFTWARE.
 from .mixins import Hashable
 from .asset import Asset
 from .utils import snowflake_time
-from .enums import StickerType, try_enum
+from .enums import StickerType, try_enum, StickerFormatType
 
 class Sticker(Hashable):
     """Represents a sticker.
@@ -137,6 +137,34 @@ class Sticker(Hashable):
             return None
 
         return Asset._from_sticker_url(self._state, self, size=size)
+
+class _StickerTag(Hashable, AssetMixin):
+    __slots__ = ()
+
+    id: int
+    format: StickerFormatType
+
+    async def read(self) -> bytes:
+        """|coro|
+        Retrieves the content of this sticker as a :class:`bytes` object.
+        .. note::
+            Stickers that use the :attr:`StickerFormatType.lottie` format cannot be read.
+        Raises
+        ------
+        HTTPException
+            Downloading the asset failed.
+        NotFound
+            The asset was deleted.
+        TypeError
+            The sticker is a lottie type.
+        Returns
+        -------
+        :class:`bytes`
+            The content of the asset.
+        """
+        if self.format is StickerFormatType.lottie:
+            raise TypeError('Cannot read stickers of format "lottie".')
+        return await super().read()
 
 
 class StickerItem(_StickerTag):
