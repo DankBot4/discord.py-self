@@ -25,7 +25,7 @@ DEALINGS IN THE SOFTWARE.
 """
 
 from .mixins import Hashable
-from .asset import Asset
+from .asset import Asset, AssetMixin
 from .utils import snowflake_time
 from .enums import StickerType, try_enum, StickerFormatType
 
