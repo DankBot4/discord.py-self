@@ -605,7 +605,6 @@ class Message(Hashable):
         'activity',
         'stickers',
         'components',
-        'guild',
     )
 
     def __init__(
