@@ -191,7 +191,7 @@ class StickerItem(_StickerTag):
 
     __slots__ = ('_state', 'name', 'id', 'format', 'url')
 
-    def __init__(self, *, state , data: StickerItemPayload):
+    def __init__(self, *, state , data ):
         self._state: ConnectionState = state
         self.name: str = data['name']
         self.id: int = int(data['id'])
