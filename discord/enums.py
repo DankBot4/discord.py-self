@@ -62,7 +62,7 @@ __all__ = (
     'InteractionType',
     'InteractionResponseType',
     'NSFWLevel',
-    'RequiredActionType'
+    'RequiredActionType',
     'ReportType',
     'BrowserEnum'
 )
