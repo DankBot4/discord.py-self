@@ -85,7 +85,7 @@ def _is_descriptor(obj):
 
 
 class EnumMeta(type):
-    def __new__(cls, name, bases, attrs):
+    def __new__(cls, name, bases, attrs, *, comparable: bool = False):
         value_mapping = {}
         member_mapping = {}
         member_names = []
