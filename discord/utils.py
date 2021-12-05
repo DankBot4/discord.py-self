@@ -88,6 +88,19 @@ def cached_slot_property(name):
         return CachedSlotProperty(name, func)
     return decorator
 
+class _MissingSentinel:
+    def __eq__(self, other):
+        return False
+
+    def __bool__(self):
+        return False
+
+    def __repr__(self):
+        return '...'
+
+
+MISSING: Any = _MissingSentinel()
+
 class SequenceProxy(collections.abc.Sequence):
     """Read-only proxy of a Sequence."""
     def __init__(self, proxied):
@@ -755,6 +768,13 @@ async def _get_build_number(session):  # Thank you Discord-S.C.U.M
     except asyncio.TimeoutError:
         log.warning('Could not fetch client build number.')
         return 103016
+
+def get_slots(cls: Type[Any]) -> Iterator[str]:
+    for mro in reversed(cls.__mro__):
+        try:
+            yield from mro.__slots__
+        except AttributeError:
+            continue
 
 async def _get_user_agent(session):
     """Fetches the latest Windows 10/Chrome user-agent."""
