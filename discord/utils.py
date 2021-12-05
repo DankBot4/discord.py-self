@@ -27,6 +27,7 @@ DEALINGS IN THE SOFTWARE.
 import array
 import asyncio
 import collections; import collections.abc
+from typing import Any
 import unicodedata
 from base64 import b64encode
 from bisect import bisect_left
