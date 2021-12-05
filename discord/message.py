@@ -54,6 +54,7 @@ __all__ = (
     'DeletedReferencedMessage',
 )
 
+
 def convert_emoji_reaction(emoji):
     if isinstance(emoji, Reaction):
         emoji = emoji.emoji
@@ -68,6 +69,7 @@ def convert_emoji_reaction(emoji):
         return emoji.strip('<>')
 
     raise InvalidArgument('emoji argument must be str, Emoji, or Reaction not {.__class__.__name__}.'.format(emoji))
+
 
 class Attachment(Hashable):
     """Represents an attachment from Discord.
@@ -262,6 +264,7 @@ class Attachment(Hashable):
         data = await self.read(use_cached=use_cached)
         return File(io.BytesIO(data), filename=self.filename, spoiler=spoiler)
 
+
 class DeletedReferencedMessage:
     """A special sentinel type that denotes whether the
     resolved message referenced message had since been deleted.
@@ -369,7 +372,8 @@ class MessageReference:
         :class:`MessageReference`
             A reference to the message.
         """
-        self = cls(message_id=message.id, channel_id=message.channel.id, guild_id=getattr(message.guild, 'id', None), fail_if_not_exists=fail_if_not_exists)
+        self = cls(message_id=message.id, channel_id=message.channel.id, guild_id=getattr(message.guild, 'id', None),
+                   fail_if_not_exists=fail_if_not_exists)
         self._state = message._state
         return self
 
@@ -388,7 +392,8 @@ class MessageReference:
         return 'https://discord.com/channels/{0}/{1.channel_id}/{1.message_id}'.format(guild_id, self)
 
     def __repr__(self):
-        return '<MessageReference message_id={0.message_id!r} channel_id={0.channel_id!r} guild_id={0.guild_id!r}>'.format(self)
+        return '<MessageReference message_id={0.message_id!r} channel_id={0.channel_id!r} guild_id={0.guild_id!r}>'.format(
+            self)
 
     def to_dict(self):
         result = {'message_id': self.message_id} if self.message_id is not None else {}
@@ -400,6 +405,7 @@ class MessageReference:
         return result
 
     to_message_reference_dict = to_dict
+
 
 def flatten_handlers(cls):
     prefix = len('_handle_')
@@ -416,6 +422,7 @@ def flatten_handlers(cls):
         attr for attr in cls.__slots__ if attr.startswith('_cs_')
     ]
     return cls
+
 
 @flatten_handlers
 class Message(Hashable):
@@ -537,7 +544,7 @@ class Message(Hashable):
                  '_cs_clean_content', '_cs_raw_channel_mentions', 'nonce', 'pinned',
                  'role_mentions', '_cs_raw_role_mentions', 'type', 'call', 'flags',
                  '_cs_system_content', '_cs_guild', '_state', 'reactions', 'reference',
-                 'application', 'activity', 'stickers', '_cs_invites')
+                 'application', 'activity', 'stickers', '_cs_invites', 'data')
 
     def __init__(self, *, state, channel, data):
         self._state = state
@@ -559,6 +566,7 @@ class Message(Hashable):
         self.content = data['content']
         self.nonce = data.get('nonce')
         self.stickers = [Sticker(data=data, state=state) for data in data.get('stickers', [])]
+        self.data = data
 
         try:
             ref = data['message_reference']
@@ -589,7 +597,8 @@ class Message(Hashable):
                 continue
 
     def __repr__(self):
-        return '<Message id={0.id} channel={0.channel!r} type={0.type!r} author={0.author!r} flags={0.flags!r}>'.format(self)
+        return '<Message id={0.id} channel={0.channel!r} type={0.type!r} author={0.author!r} flags={0.flags!r}>'.format(
+            self)
 
     def _try_patch(self, data, key, transform=None):
         try:
@@ -999,7 +1008,8 @@ class Message(Hashable):
             All valid invites contained in the message.
         """
         state = self._state
-        invite_ids = [utils.resolve_invite(match) for match in re.findall('(?:https?://)?discord(?:app)?\.(?:com/invite|gg)/[a-zA-Z0-9]+/?', self.content)]
+        invite_ids = [utils.resolve_invite(match) for match in
+                      re.findall('(?:https?://)?discord(?:app)?\.(?:com/invite|gg)/[a-zA-Z0-9]+/?', self.content)]
         invites = []
         for id in invite_ids:
             try:
@@ -1114,9 +1124,9 @@ class Message(Hashable):
         except KeyError:
             pass
         else:
-             flags = MessageFlags._from_value(self.flags.value)
-             flags.suppress_embeds = suppress
-             fields['flags'] = flags.value
+            flags = MessageFlags._from_value(self.flags.value)
+            flags.suppress_embeds = suppress
+            fields['flags'] = flags.value
 
         delete_after = fields.pop('delete_after', None)
 
@@ -1389,12 +1399,14 @@ class Message(Hashable):
 
         return data
 
+
 def implement_partial_methods(cls):
     msg = Message
     for name in cls._exported_names:
         func = getattr(msg, name)
         setattr(cls, name, func)
     return cls
+
 
 @implement_partial_methods
 class PartialMessage(Hashable):
@@ -1573,9 +1585,9 @@ class PartialMessage(Hashable):
         except KeyError:
             pass
         else:
-             flags = MessageFlags._from_value(0)
-             flags.suppress_embeds = suppress
-             fields['flags'] = flags.value
+            flags = MessageFlags._from_value(0)
+            flags.suppress_embeds = suppress
+            fields['flags'] = flags.value
 
         delete_after = fields.pop('delete_after', None)
 
