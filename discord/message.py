@@ -344,7 +344,7 @@ class MessageReference:
     def with_state(cls, state, data):
         self = cls.__new__(cls)
         self.message_id = utils._get_as_snowflake(data, 'message_id')
-        self.channel_id = int(data.pop('channel_id'))
+        self.channel_id = int(data.get('channel_id', None))
         self.guild_id = utils._get_as_snowflake(data, 'guild_id')
         self.fail_if_not_exists = data.get('fail_if_not_exists', True)
         self._state = state
