@@ -661,6 +661,7 @@ class Message(Hashable):
         # otherwise they overwrite each other which is undesirable.
         # Since there's no good way to do this we have to iterate over every
         # handler rather than iterating over the keys which is a little slower
+        self.data = data
         for key, handler in self._HANDLERS:
             try:
                 value = data[key]
